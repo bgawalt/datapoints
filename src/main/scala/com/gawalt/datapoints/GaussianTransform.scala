@@ -1,7 +1,9 @@
 package com.gawalt.datapoints
 
 /**
- * Created by brian on 4/25/15.
+ * This source file created by Brian Gawalt, 4/25/15.
+ * It is subject to the MIT license bundled with this package in the file LICENSE.txt.
+ * Copyright (c) Brian Gawalt, 2015
  */
 
 /**
