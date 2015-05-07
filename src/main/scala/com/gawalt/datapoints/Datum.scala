@@ -6,7 +6,7 @@ package com.gawalt.datapoints
  * Copyright (c) Brian Gawalt, 2015
  */
 
-case class Datum(private val elements: IndexedSeq[Double]) {
+case class Datum(elements: IndexedSeq[Double]) {
   val n = elements.size
   require(n > 0, "Can't create a zero-dimensional datapoint")
 
@@ -19,6 +19,16 @@ case class Datum(private val elements: IndexedSeq[Double]) {
   }
 
   def apply(idx: Int): Double = elements(idx)
+
+  def +(other: Datum): Datum = {
+    require(n == other.n, s"Can't add feature vectors of size $n and size ${other.n}")
+    val newElements = elements.zip(other.elements).map({case (x, y) => x + y})
+    Datum(newElements)
+  }
+
+  def scale(a: Double): Datum = Datum(elements.map(fi => fi*a))
+
+  def -(other:Datum): Datum = this + other.scale(-1)
 }
 
 object Datum {

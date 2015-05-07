@@ -53,10 +53,10 @@ case class Datapoints(points: IndexedSeq[Datum]) {
 
 object Datapoints {
   def random(m: Int, n: Int, rng: scala.util.Random): Datapoints = {
-    Datapoints((0 until n).map(i => Datum.random(n, rng)))
+    Datapoints((0 until m).map(i => Datum.random(n, rng)))
   }
   def randn(m: Int, n: Int, rng: scala.util.Random): Datapoints = {
-    Datapoints((0 until n).map(i => Datum.randn(n, rng)))
+    Datapoints((0 until m).map(i => Datum.randn(n, rng)))
   }
 
   def main(args: Array[String]) {
