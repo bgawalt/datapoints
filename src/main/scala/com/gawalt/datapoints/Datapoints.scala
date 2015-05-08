@@ -1,6 +1,10 @@
 package com.gawalt.datapoints
 
 import scala.util.Try
+import javax.swing.JFrame
+import org.jfree.chart.{ChartFactory, ChartPanel}
+import org.jfree.chart.plot.PlotOrientation
+import org.jfree.data.xy.{XYSeries, XYSeriesCollection}
 
 /**
  * This source file created by Brian Gawalt, 4/25/15.
@@ -24,6 +28,47 @@ case class Datapoints(points: IndexedSeq[Datum]) {
   def column(idx: Int): IndexedSeq[Double] = {
     require(idx >= 0 && idx < n, s"Index must be between 0 and n-1 (= ${n-1} for this Data object)")
     points.map(p => p(idx))
+  }
+
+  def plotColumn(idx: Int, numBins: Int, name: String = "") {
+    val chartName = if (name.length == 0) s"Column $idx" else name
+
+    val coll = new XYSeriesCollection()
+    val data = new XYSeries(chartName)
+    val xs = column(idx)
+    val min = xs.min
+    val max = xs.max
+    val binWidth = (max - min)/numBins
+
+    val arr = Array.fill[Int](numBins)(0)
+
+    xs.foreach(x => {
+      val bin = ((x - min)/binWidth).toInt
+      if (bin > numBins - 1) arr(numBins - 1) += 1 else arr(bin) += 1
+    })
+
+    (0 until numBins).map(i => {
+      val center = min + i*binWidth + binWidth/2
+      data.add(center, arr(i))
+    })
+
+    coll.addSeries(data)
+
+    val chart = ChartFactory.createXYLineChart(
+      chartName, "Value", "Frequency",
+      coll, PlotOrientation.VERTICAL,
+      false, false, false)
+
+    println(s"Displaying $chartName")
+
+    val frame = new JFrame(s"$chartName Histogram")
+    frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE )
+
+    frame.setSize(640,420)
+    frame.add( new ChartPanel(chart) )
+    frame.pack()
+    frame.setVisible(true)
+
   }
 
   /**
@@ -60,21 +105,14 @@ object Datapoints {
   }
 
   def main(args: Array[String]) {
-    val m = 10000
-    val rng = new scala.util.Random(System.nanoTime())
-    val data = Datapoints(
-      (0 until m).map(i =>  Datum(Vector(
-          5 + 4*rng.nextGaussian(),
-          1 + 2*rng.nextGaussian(),
-          math.pow(3 + 4*rng.nextGaussian(), 2),
-          math.exp(5 + 6*rng.nextGaussian())
-        ))
-      ))
+    val rng = new scala.util.Random()
+    val data = Datapoints.randn(10000, 40, rng)
 
-    val gts = data.fitTransformedGaussians(FeatureTransforms.standards)
-    println(data.column(0).sum)
+    data.plotColumn(0, 10)
 
-    gts.foreach(println)
+    data.plotColumn(1, 20)
+
+
   }
 
 }
