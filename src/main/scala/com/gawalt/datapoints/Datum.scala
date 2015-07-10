@@ -43,4 +43,6 @@ object Datum {
     require(n > 0, "Number of requested features must be positive")
     Datum(Vector.fill[Double](n)(rng.nextGaussian()))
   }
+
+  def zero(n: Int): Datum = Datum(Vector.fill[Double](n)(0.0))
 }

@@ -68,7 +68,6 @@ case class Datapoints(points: IndexedSeq[Datum]) {
     frame.add( new ChartPanel(chart) )
     frame.pack()
     frame.setVisible(true)
-
   }
 
   /**
