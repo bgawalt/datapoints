@@ -49,7 +49,7 @@ object LogisticRegression {
 
   def logit(z: Double): Double = 1.0/(1 + math.exp(-1*z))
 
-  //@tailrec
+  @tailrec
   def train(data: Datapoints,
             labels: Seq[Int],
             stepSize: Double,
@@ -72,18 +72,22 @@ object LogisticRegression {
     var w = init.getOrElse(nMod)
     var prevLoss = w.loss(data, labels)
     var continue = true
+    var smallerStepRequired = false
     while (continue) {
       w = trainStep(w)
       if (w.hashCode() % 100 == 0) {
         val newLoss = w.loss(data, labels)
-        if (newLoss > prevLoss)
-          return train(data, labels, stepSize/2, Some(w))
+        if (newLoss > prevLoss) {
+          smallerStepRequired = true
+          continue = false
+        }
         prevLoss = newLoss
         val grad = w.gradient(data, labels)
         if (grad.dot(grad) < 1e-4) continue = false
       }
     }
 
-    w
+    if (smallerStepRequired) train(data, labels, stepSize/2, Some(w))
+    else w
   }
 }
