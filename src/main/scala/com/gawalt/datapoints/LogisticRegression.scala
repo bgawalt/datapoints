@@ -53,7 +53,8 @@ object LogisticRegression {
   def train(data: Datapoints,
             labels: Seq[Int],
             stepSize: Double,
-            init: Option[LogisticRegression] = None): LogisticRegression = {
+            init: Option[LogisticRegression] = None,
+            tol: Double = 1e-6): LogisticRegression = {
     require(labels.length == data.m, "Must have as many labels as datapoints")
     require(stepSize > 0, "stepSize must be positive")
 
@@ -62,32 +63,66 @@ object LogisticRegression {
     val nMod = nullModel(data.n)
 
     def trainStep(current: LogisticRegression): LogisticRegression = {
-      xy.foldLeft(nMod)({case (model, (xi, yi)) =>
+      val update =
+        xy.foldLeft((Datum.zero(current.weights.n), 0.0))({case ((wAcc, bAcc), (xi, yi)) =>
         val lossWeightedStep = (current.predict(xi) - yi)*stepSize/data.m
-        LogisticRegression(model.weights - xi.scale(lossWeightedStep),
-          model.intercept - lossWeightedStep)
+        (wAcc + xi.scale(lossWeightedStep), bAcc + lossWeightedStep)
       })
+      current.copy(weights = current.weights - update._1, intercept = current.intercept - update._2)
     }
 
     var w = init.getOrElse(nMod)
     var prevLoss = w.loss(data, labels)
     var continue = true
     var smallerStepRequired = false
+    var iter = 0
     while (continue) {
+      iter +=1
       w = trainStep(w)
-      if (w.hashCode() % 100 == 0) {
+      if (iter % 10 == 0) {
         val newLoss = w.loss(data, labels)
-        if (newLoss > prevLoss) {
+        if (newLoss > prevLoss || newLoss.isNaN) {
           smallerStepRequired = true
           continue = false
         }
         prevLoss = newLoss
         val grad = w.gradient(data, labels)
-        if (grad.dot(grad) < 1e-4) continue = false
+        if (grad.dot(grad) < tol*tol) continue = false
+        println(s"Iter $iter: $newLoss, ${grad.dot(grad)}")
       }
     }
 
-    if (smallerStepRequired) train(data, labels, stepSize/2, Some(w))
+    if (smallerStepRequired) {
+      println(s"Shrinking step size from $stepSize")
+      if (w.weights.elements.exists(wj => wj.isNaN) || w.intercept.isNaN)
+        train(data, labels, stepSize/2) // Just start from scratch if we've gone into NaN-land
+      else train(data, labels, stepSize/2, Some(w))
+    }
     else w
+  }
+
+  def main(args: Array[String]) {
+    val rng = new scala.util.Random()
+    val nPoints = 10000
+    val A = 2.0
+    val B = -1.5
+
+    val xy = (0 until nPoints).map(i => {
+      val xi = rng.nextGaussian()
+      val zi = B + A*xi
+      val p = rng.nextDouble()
+      val yi = if (p < logit(zi)) 1 else 0
+      (xi, yi)
+    })
+
+    val xyUnzip = xy.unzip
+    val data = Datapoints(xyUnzip._1.map(xi => Datum(Vector(xi))))
+    val labels = xyUnzip._2
+
+    val mod = train(data, labels, 1000.0)
+
+    println(mod.weights.elements.mkString(", "))
+    println(mod.intercept)
+
   }
 }
