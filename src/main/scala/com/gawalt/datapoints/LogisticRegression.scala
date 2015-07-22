@@ -30,11 +30,11 @@ case class LogisticRegression(weights: Datum, intercept: Double) {
       .sum
   }
 
-  def gradient(xs: Datapoints, labels: Seq[Int]): Datum = {
+  def gradient(xs: Datapoints, labels: Seq[Int], l2reg: Double): Datum = {
     xs.points.zip(labels).foldLeft(Datum.zero(xs.n))({case (g, (xi, yi)) =>
       val p = (predict(xi) - yi)/xs.m
       g - xi.scale(p)
-    })
+    }) + weights.scale(l2reg/xs.m)
   }
 
 }
@@ -52,9 +52,11 @@ object LogisticRegression {
   @tailrec
   def train(data: Datapoints,
             labels: Seq[Int],
+            l2reg: Double,
             stepSize: Double,
             init: Option[LogisticRegression] = None,
-            tol: Double = 1e-6): LogisticRegression = {
+            tol: Double = 1e-6,
+            verbose: Boolean = false): LogisticRegression = {
     require(labels.length == data.m, "Must have as many labels as datapoints")
     require(stepSize > 0, "stepSize must be positive")
 
@@ -68,12 +70,13 @@ object LogisticRegression {
         val lossWeightedStep = (current.predict(xi) - yi)*stepSize/data.m
         (wAcc + xi.scale(lossWeightedStep), bAcc + lossWeightedStep)
       })
-      current.copy(weights = current.weights - update._1, intercept = current.intercept - update._2)
+      current.copy(weights = current.weights.scale(1 - l2reg/data.m) - update._1,
+        intercept = current.intercept - update._2)
     }
 
     var w = init.getOrElse(nMod)
     var prevLoss = w.loss(data, labels)
-    var continue = true
+    var continue = stepSize > 1e-10
     var smallerStepRequired = false
     var iter = 0
     while (continue) {
@@ -86,17 +89,17 @@ object LogisticRegression {
           continue = false
         }
         prevLoss = newLoss
-        val grad = w.gradient(data, labels)
+        val grad = w.gradient(data, labels, l2reg)
         if (grad.dot(grad) < tol*tol) continue = false
-        println(s"Iter $iter: $newLoss, ${grad.dot(grad)}")
+        if (verbose) println(s"Iter $iter: $newLoss, ${grad.dot(grad)}")
       }
     }
 
     if (smallerStepRequired) {
-      println(s"Shrinking step size from $stepSize")
+      if (verbose) println(s"Shrinking step size from $stepSize")
       if (w.weights.elements.exists(wj => wj.isNaN) || w.intercept.isNaN)
-        train(data, labels, stepSize/2) // Just start from scratch if we've gone into NaN-land
-      else train(data, labels, stepSize/2, Some(w))
+        train(data, labels, l2reg, stepSize/2, verbose = verbose) // Just start from scratch if we've gone into NaN-land
+      else train(data, labels, l2reg, stepSize/2, Some(w), verbose = verbose)
     }
     else w
   }
@@ -119,10 +122,10 @@ object LogisticRegression {
     val data = Datapoints(xyUnzip._1.map(xi => Datum(Vector(xi))))
     val labels = xyUnzip._2
 
-    val mod = train(data, labels, 1000.0)
-
-    println(mod.weights.elements.mkString(", "))
-    println(mod.intercept)
+    for (lambda <- List(0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0)) {
+      val mod = train(data, labels, lambda, 1000.0, verbose = false)
+      println(s"\n\n\t$lambda\t${mod.weights.toCSVrow}\t${mod.intercept}")
+    }
 
   }
 }
